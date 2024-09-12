@@ -14,7 +14,7 @@ Example project structure
   __init__.py
   ... .py
   _utester/
-  	__init__.py
+    __init__.py
     testcase1.py
     ... .py
 ```
@@ -94,4 +94,4 @@ def command_hello_by_console(tc):
 |         Command format  | Introduction |
 |-------------------------|-----|
 | `!!ut run <pattern>`    | Run unit tests that match the pattern |
-| `!!tp list [<pattern>]` | Show unit tests that match the pattern |
+| `!!ut list [<pattern>]` | Show unit tests that match the pattern |
