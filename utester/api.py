@@ -16,9 +16,7 @@ from mcdreforged.api.all import (
 	PreferenceItem,
 )
 from mcdreforged.info_reactor.info import Info, InfoSource
-from mcdreforged.plugin.operation_result import PluginOperationResult
 from mcdreforged.plugin.type.regular_plugin import RegularPlugin
-from mcdreforged.utils.future import Future
 MessageText: TypeAlias = str | RTextBase
 
 from .fake_command_source import FakeCommandSource, FakePlayerCommandSource, FakeConsoleCommandSource
@@ -35,6 +33,11 @@ plugin_interface: PluginServerInterface | None = None
 
 def on_load(server: PluginServerInterface, prev_module):
 	plugin_interface = server
+	self_plugin_id = server.get_self_metadata().id
+	for p in server.get_plugin_list():
+		if p != self_plugin_id:
+			# Reload plugins to ensure `utester` module instance is up to date
+			server.reload_plugin(p)
 
 def on_unload(server: PluginServerInterface):
 	plugin_interface = None
@@ -97,37 +100,6 @@ class TestCase(ABC):
 	@property
 	def current_executor(self) -> CommandSource | None:
 		return self._current_executor
-
-	def _wait_plugin_operation_nofail(self, future: Future[PluginOperationResult]) -> None:
-		res: PluginOperationResult | None = None
-		cond = threading.Condition()
-		def done(r: PluginOperationResult):
-			nonlocal res
-			res = r
-			with cond:
-				cond.notify()
-		future.add_done_callback(done)
-		if res is None:
-			with cond:
-				cond.wait()
-			assert res is not None
-		if res.load_result.has_failed() or res.unload_result.has_failed() or res.reload_result.has_failed() or res.dependency_check_result.has_failed():
-			raise RuntimeError('Plugin operation failed')
-
-	def reload_plugin(self, heavy: bool = False) -> None:
-		if heavy:
-			plugin_id = self.plugin.get_id()
-			plugin_path = self.plugin.plugin_path
-			self._wait_plugin_operation_nofail(self._mcdr_server.plugin_manager.unload_plugin(self.plugin))
-			self._wait_plugin_operation_nofail(self._mcdr_server.plugin_manager.load_plugin(plugin_path))
-			plugin = self._mcdr_server.plugin_manager.get_plugin_from_id(plugin_id)
-			if plugin is None:
-				raise RuntimeError('Plugin {} not found'.format(plugin_id))
-			if not isinstance(plugin, RegularPlugin):
-				raise RuntimeError('Plugin {} is not a RegularPlugin'.format(plugin.get_id()))
-			self._plugin = plugin
-		else:
-			self._wait_plugin_operation_nofail(self._mcdr_server.plugin_manager.reload_plugin(self.plugin))
 
 	def tester(self, cb: Callable[[TestCase], None]) -> Callable[[TestCase], None]:
 		name = cb.__name__.removeprefix('test__')
