@@ -76,14 +76,14 @@ import utester
 class TestCase1(utester.TestCase):
 	pass
 
-testcast1 = TestCase1()
+testcase1 = TestCase1()
 
-@testcast1.tester
+@testcase1.tester
 def command_hello_by_player(tc):
 	source = tc.execute_command_by_player('Alex', '!!hello')
 	tc.assert_eq(source.get_reply(), 'Hello Alex ^.^')
 
-@testcast1.tester
+@testcase1.tester
 def command_hello_by_console(tc):
 	source = tc.execute_command_by_console('!!hello')
 	tc.assert_eq(source.get_reply(), 'Hello unknown person')
