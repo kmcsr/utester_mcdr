@@ -1,0 +1,13 @@
+
+# Mac OS
+.DS_Store
+
+# output
+/output/
+
+# test
+/test/
+
+# python
+__pycache__
+/*_cache

@@ -1,0 +1,18 @@
+{
+  "id": "utester",
+  "version": "0.1.0",
+  "name": "UTester",
+  "description": {
+    "en_us": "A unit test framework for MCDR",
+    "zh_cn": "一个MCDR的单元测试框架"
+  },
+  "author": "zyxkad",
+  "link": "https://github.com/kmcsr/utester_mcdr",
+  "dependencies": {
+    "mcdreforged": "^2.3.0",
+    "python": "^3.10"
+  },
+  "resources": [
+    "LICENSE"
+  ]
+}
