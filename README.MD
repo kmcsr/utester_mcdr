@@ -33,6 +33,7 @@ def reply_hello(source: CommandSource) -> None:
 	else:
 		source.reply('Hello unknown person')
 
+...
 ```
 
 In `_utester/__init__.py`
@@ -83,5 +84,11 @@ def command_hello_by_player(tc):
 def command_hello_by_console(tc):
 	source = tc.execute_command_by_console('!!hello')
 	tc.assert_eq(source.get_reply(), 'Hello unknown person')
-```  
+```
 
+## Commands
+
+|         Command format  | Introduction |
+|-------------------------|-----|
+| `!!ut run <pattern>`    | Run unit tests that match the pattern |
+| `!!tp list [<pattern>]` | Show unit tests that match the pattern |
