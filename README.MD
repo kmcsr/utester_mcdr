@@ -1,4 +1,7 @@
 
+- English
+- [中文](README_zh.MD)
+
 # UTester
 
 This is a unit test framework for MCDReforged plugins
