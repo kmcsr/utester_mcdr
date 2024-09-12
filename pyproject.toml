@@ -12,6 +12,6 @@ line-length = 100
 [tool.mypy]
 
 ignore_missing_imports = true
-disable_error_code = ['misc']
+disable_error_code = ['misc', 'method-assign']
 
 [tool.poetry]

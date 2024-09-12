@@ -1,24 +1,35 @@
 
 import threading
 
+from abc import ABC
 from datetime import datetime
-from typing import Callable, NoReturn
+from typing import Callable, NoReturn, TypeAlias
 
 from mcdreforged.api.all import (
 	CommandSource,
-	Future,
-	Info,
-	InfoSource,
-	PluginOperationResult,
 	PluginServerInterface,
-	RegularPlugin,
-	ServerInterface,
 	RColor,
+	RStyle,
 	RText,
+	RTextBase,
+	ServerInterface,
+	PreferenceItem,
 )
+from mcdreforged.info_reactor.info import Info, InfoSource
+from mcdreforged.plugin.operation_result import PluginOperationResult
+from mcdreforged.plugin.type.regular_plugin import RegularPlugin
+from mcdreforged.utils.future import Future
+MessageText: TypeAlias = str | RTextBase
 
-from .fake_command_source import FakePlayerCommandSource, FakeConsoleCommandSource
+from .fake_command_source import FakeCommandSource, FakePlayerCommandSource, FakeConsoleCommandSource
 from .recorder import Recorder
+
+__all__ = [
+	'TestCase',
+	'TestException', 'TestAssertException',
+	'FakeCommandSource', 'FakePlayerCommandSource', 'FakeConsoleCommandSource',
+	'Recorder',
+]
 
 plugin_interface: PluginServerInterface | None = None
 
@@ -28,7 +39,7 @@ def on_load(server: PluginServerInterface, prev_module):
 def on_unload(server: PluginServerInterface):
 	plugin_interface = None
 
-class TestCase:
+class TestCase(ABC):
 	_avaliable_testcases: list[tuple[str, TestCase]] = []
 	_running_test: str | None = None
 	_running_test_lock = threading.Lock()
@@ -72,7 +83,7 @@ class TestCase:
 		return self._name
 
 	@property
-	def plugin(self) -> AbstractPlugin:
+	def plugin(self) -> RegularPlugin:
 		return self._plugin
 
 	@property
@@ -109,9 +120,12 @@ class TestCase:
 			plugin_path = self.plugin.plugin_path
 			self._wait_plugin_operation_nofail(self._mcdr_server.plugin_manager.unload_plugin(self.plugin))
 			self._wait_plugin_operation_nofail(self._mcdr_server.plugin_manager.load_plugin(plugin_path))
-			self._plugin = self._mcdr_server.plugin_manager.get_plugin_from_id(plugin_id)
-			if self._plugin is None:
+			plugin = self._mcdr_server.plugin_manager.get_plugin_from_id(plugin_id)
+			if plugin is None:
 				raise RuntimeError('Plugin {} not found'.format(plugin_id))
+			if not isinstance(plugin, RegularPlugin):
+				raise RuntimeError('Plugin {} is not a RegularPlugin'.format(plugin.get_id()))
+			self._plugin = plugin
 		else:
 			self._wait_plugin_operation_nofail(self._mcdr_server.plugin_manager.reload_plugin(self.plugin))
 
@@ -181,17 +195,18 @@ class TestCase:
 	) -> FakePlayerCommandSource:
 		info = self._make_player_info(player, command, date=date)
 		source = FakePlayerCommandSource(self._mcdr_server, info, player, preference=preference)
+		assert plugin_interface is not None
 		plugin_interface.execute_command(command, source)
 		return source
 
 	def execute_command_by_console(self, command: str, *, preference: PreferenceItem | None = None) -> FakeConsoleCommandSource:
-		info = self._make_player_info(player, command, date=date)
+		info = self._make_console_info(command)
 		source = FakeConsoleCommandSource(self._mcdr_server, info, preference=preference)
 		assert plugin_interface is not None
 		plugin_interface.execute_command(command, source)
 		return source
 
-	def _make_player_info(self, player: str, content: str, *, date: datetime | None = None) -> None:
+	def _make_player_info(self, player: str, content: str, *, date: datetime | None = None) -> Info:
 		date = datetime.now()
 		info = Info(InfoSource.SERVER, '[{:02d}:{:02d}:{:02d}] <{}> {}'.format(date.hour, date.minute, date.second, player, content))
 		info.hour = date.hour
@@ -203,7 +218,7 @@ class TestCase:
 		info.attach_mcdr_server(self._mcdr_server)
 		return info
 
-	def _make_console_info(self, content: str) -> None:
+	def _make_console_info(self, content: str) -> Info:
 		date = datetime.now()
 		info = Info(InfoSource.CONSOLE, content)
 		info.content = content
@@ -239,7 +254,7 @@ class TestCase:
 
 	def assert_true(self, got, *, want=True, message: str | None = None, abort: bool = True) -> bool:
 		if not got:
-			err = TestAssertError(self, want, got, message or 'want True value, got {}'.format(repr(got)))
+			err = TestAssertException(self, want, got, message or 'want True value, got {}'.format(repr(got)))
 			self.push_error(err)
 			if abort:
 				raise err
@@ -248,7 +263,7 @@ class TestCase:
 
 	def assert_false(self, got, *, want=False, message: str | None = None, abort: bool = True) -> bool:
 		if got:
-			err = TestAssertError(self, want, got, message or 'want False value, got {}'.format(repr(got)))
+			err = TestAssertException(self, want, got, message or 'want False value, got {}'.format(repr(got)))
 			self.push_error(err)
 			if abort:
 				raise err

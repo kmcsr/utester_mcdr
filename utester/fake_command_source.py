@@ -1,10 +1,11 @@
 
-from mcdreforged.api.all import (
-	MessageText,
-	PlayerCommandSource,
-	PreferenceItem,
-	RTextBase,
-)
+from typing import TypeAlias
+from mcdreforged.api.all import ConsoleCommandSource, PlayerCommandSource, PreferenceItem, RTextBase
+MessageText: TypeAlias = str | RTextBase
+
+__all__ = [
+	'FakeCommandSource', 'FakePlayerCommandSource', 'FakeConsoleCommandSource',
+]
 
 class FakeCommandSource:
 	def __init__(self, *, preference: PreferenceItem | None = None):
@@ -26,10 +27,10 @@ class FakeCommandSource:
 
 class FakePlayerCommandSource(FakeCommandSource, PlayerCommandSource):
 	def __init__(self, mcdr_server, info, player: str, *, preference: PreferenceItem | None = None):
-		super(PlayerCommandSource, self).__init__(mcdr_server, info, player):
-		super(FakeCommandSource, self).__init__(preference=preference)
+		PlayerCommandSource.__init__(self, mcdr_server, info, player)
+		FakeCommandSource.__init__(self, preference=preference)
 
 class FakeConsoleCommandSource(FakeCommandSource, ConsoleCommandSource):
 	def __init__(self, mcdr_server, info, *, preference: PreferenceItem | None = None):
-		super(ConsoleCommandSource, self).__init__(mcdr_server, info):
-		super(FakeCommandSource, self).__init__(preference=preference)
+		ConsoleCommandSource.__init__(self, mcdr_server, info)
+		FakeCommandSource.__init__(self, preference=preference)

@@ -1,6 +1,12 @@
 
-from typing import Callable, Self
-from mcdreforged.api.all import MessageText, RTextBase, ServerInterface
+import threading
+
+from typing import TYPE_CHECKING, Callable, Self, TypeAlias
+from mcdreforged.api.all import RTextBase, ServerInterface
+MessageText: TypeAlias = str | RTextBase
+
+if TYPE_CHECKING:
+	from .api import TestCase
 
 __all__ = [
 	'Recorder',
@@ -51,21 +57,21 @@ class Recorder:
 			ServerInterface.tell = _ServerInterface_tell
 			ServerInterface.say = _ServerInterface_say
 
-	def _patch_execute(self, text: str, *, encoding: str | None = None) -> None:
-		self.executed.append(text)
-		if self._on_execute is not None and self._on_execute(text):
-			_ServerInterface_execute(text, encoding=encoding)
+	def _patch_execute(recorder, self: ServerInterface, text: str, *, encoding: str | None = None) -> None:
+		recorder.executed.append(text)
+		if recorder._on_execute is not None and recorder._on_execute(text):
+			_ServerInterface_execute(self, text, encoding=encoding)
 
-	def _patch_tell(self, player: str, text: MessageText, *, encoding: str | None = None) -> None:
-		self.told.append((player, text))
-		if self._on_tell is not None and self._on_tell(player, text):
-			_ServerInterface_tell(player, text, encoding=encoding)
+	def _patch_tell(recorder, self: ServerInterface, player: str, text: MessageText, *, encoding: str | None = None) -> None:
+		recorder.told.append((player, text))
+		if recorder._on_tell is not None and recorder._on_tell(player, text):
+			_ServerInterface_tell(self, player, text, encoding=encoding)
 
-	def _patch_say(self, text: MessageText, *, encoding: str | None = None) -> None:
-		self.told.append((None, text))
-		self.said.append(text)
-		if self._on_say is not None and self._on_say(text):
-			_ServerInterface_say(text, encoding=encoding)
+	def _patch_say(recorder, self: ServerInterface, text: MessageText, *, encoding: str | None = None) -> None:
+		recorder.told.append((None, text))
+		recorder.said.append(text)
+		if recorder._on_say is not None and recorder._on_say(text):
+			_ServerInterface_say(self, text, encoding=encoding)
 
 	def on_execute(self, cb: Callable[[str], bool | None]) -> Callable[[str], bool | None]:
 		self._on_execute = cb
@@ -79,7 +85,7 @@ class Recorder:
 		self._on_say = cb
 		return cb
 
-	def has_executed(self, commands: str | list[str] | tuple[str], allow_extra: bool = True) -> bool:
+	def assert_executed(self, commands: str | list[str] | tuple[str], allow_extra: bool = True) -> bool:
 		if not isinstance(commands, (list, tuple)):
 			commands = (commands, )
 		i = 0
@@ -93,13 +99,13 @@ class Recorder:
 					break
 		return True
 
-	def has_told_to(self, player: str, messages: MessageText | list[MessageText] | tuple[MessageText], *,
+	def assert_told_to(self, player: str, messages: MessageText | list[MessageText] | tuple[MessageText], *,
 		allow_extra: bool = True, include_say: bool = True
 	) -> bool:
 		player = player.lower()
 		if not isinstance(messages, (list, tuple)):
 			messages = (messages, )
-		told = [m for p, m in self.told if include_say if p is None else p.lower() == player]
+		told = [m for p, m in self.told if (include_say if p is None else p.lower() == player)]
 		i = 0
 		for a in messages:
 			while True:
@@ -121,7 +127,7 @@ class Recorder:
 			return False
 		return True
 
-	def has_said(self, messages: MessageText | list[MessageText] | tuple[MessageText], *, allow_extra: bool = True) -> bool:
+	def assert_said(self, messages: MessageText | list[MessageText] | tuple[MessageText], *, allow_extra: bool = True) -> bool:
 		if not isinstance(messages, (list, tuple)):
 			messages = (messages, )
 		i = 0
