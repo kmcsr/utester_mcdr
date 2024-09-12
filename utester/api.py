@@ -224,6 +224,8 @@ class TestCase(ABC):
 	def log(self, message: MessageText, *, force: bool = False) -> None:
 		assert self.current_executor
 		if self._verbose_log:
+			if not self.current_executor.is_console:
+				plugin_interface.logger.info(message)
 			self.current_executor.reply(message)
 		else:
 			self._test_logs.append((force, message))
@@ -247,28 +249,36 @@ class TestCase(ABC):
 		return True
 
 	def assert_is(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got is want, want=want, abort=abort, message=message or 'want two same reference')
+		return self.assert_true(got is want, want=want, abort=abort,
+			message=message or 'want two same reference')
 
 	def assert_is_not(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got is not want, want=want, abort=abort, message=message or 'want two different reference')
+		return self.assert_true(got is not want, want=want, abort=abort,
+			message=message or 'want two different reference')
 
 	def assert_eq(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got == want, want=want, abort=abort, message=message or 'want {}, got {}'.format(want, got))
+		return self.assert_true(got == want, want=want, abort=abort,
+			message=message or 'want {}, got {}'.format(want, got))
 
 	def assert_neq(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got != want, want=want, abort=abort, message=message or 'not want {}, but got same value'.format(want))
+		return self.assert_true(got != want, want=want, abort=abort,
+			message=message or 'not want {}, but got same value'.format(want))
 
 	def assert_lt(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got < want, want=want, abort=abort, message=message or 'want less than {}, got {}'.format(want, got))
+		return self.assert_true(got < want, want=want, abort=abort,
+			message=message or 'want less than {}, got {}'.format(want, got))
 
 	def assert_le(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got <= want, want=want, abort=abort, message=message or 'want less or equal than {}, got {}'.format(want, got))
+		return self.assert_true(got <= want, want=want, abort=abort,
+			message=message or 'want less or equal than {}, got {}'.format(want, got))
 
 	def assert_gt(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got > want, want=want, abort=abort, message=message or 'want greater than {}, got {}'.format(want, got))
+		return self.assert_true(got > want, want=want, abort=abort,
+			message=message or 'want greater than {}, got {}'.format(want, got))
 
 	def assert_ge(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
-		return self.assert_true(got >= want, want=want, abort=abort, message=message or 'want greater or equal than {}, got {}'.format(want, got))
+		return self.assert_true(got >= want, want=want, abort=abort,
+			message=message or 'want greater or equal than {}, got {}'.format(want, got))
 
 class TestException(Exception):
 	pass

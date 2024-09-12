@@ -30,6 +30,7 @@ class Recorder:
 		self._on_say: Callable[[MessageText], bool | None] | None = None
 
 	def __enter__(self) -> Self:
+		self.start()
 		return self
 
 	def __exit__(self, exc_typ, exc, exc_trace):
@@ -85,13 +86,19 @@ class Recorder:
 		self._on_say = cb
 		return cb
 
-	def assert_executed(self, commands: str | list[str] | tuple[str], allow_extra: bool = True) -> bool:
+	def assert_executed(self, commands: str | list[str] | tuple[str], *,
+		allow_extra: bool = True, abort: bool = True
+	) -> bool:
 		if not isinstance(commands, (list, tuple)):
 			commands = (commands, )
 		i = 0
-		for a in commands:
+		for j, a in enumerate(commands):
 			while True:
 				if i >= len(self.executed):
+					err = TestAssertException(self.testcase, self.executed.copy(), commands, 'only {} commands matched, need {}'.format(j, len(commands)))
+					self.testcase.push_error(err)
+					if abort:
+						raise err
 					return False
 				b = self.executed[i]
 				i = i + 1
@@ -100,16 +107,20 @@ class Recorder:
 		return True
 
 	def assert_told_to(self, player: str, messages: MessageText | list[MessageText] | tuple[MessageText], *,
-		allow_extra: bool = True, include_say: bool = True
+		allow_extra: bool = True, include_say: bool = True, abort: bool = True
 	) -> bool:
 		player = player.lower()
 		if not isinstance(messages, (list, tuple)):
 			messages = (messages, )
 		told = [m for p, m in self.told if (include_say if p is None else p.lower() == player)]
 		i = 0
-		for a in messages:
+		for j, a in enumerate(messages):
 			while True:
 				if i >= len(told):
+					err = TestAssertException(self.testcase, told, messages, 'only {} messages matched, need {}'.format(j, len(messages)))
+					self.testcase.push_error(err)
+					if abort:
+						raise err
 					return False
 				b = told[i]
 				i = i + 1
@@ -122,18 +133,32 @@ class Recorder:
 				elif isinstance(a, str) and a == b:
 					break
 				if not allow_extra:
+					err = TestAssertException(self.testcase, b, a, 'unexpected message {}'.format(a))
+					self.testcase.push_error(err)
+					if abort:
+						raise err
 					return False
 		if not allow_extra and len(messages) != len(told):
+			err = TestAssertException(self.testcase, told, messages, 'only {} messages needed, got {}'.format(len(messages), len(told)))
+			self.testcase.push_error(err)
+			if abort:
+				raise err
 			return False
 		return True
 
-	def assert_said(self, messages: MessageText | list[MessageText] | tuple[MessageText], *, allow_extra: bool = True) -> bool:
+	def assert_said(self, messages: MessageText | list[MessageText] | tuple[MessageText], *,
+		allow_extra: bool = True, abort: bool = True
+	) -> bool:
 		if not isinstance(messages, (list, tuple)):
 			messages = (messages, )
 		i = 0
 		for a in messages:
 			while True:
 				if i >= len(self.said):
+					err = TestAssertException(self.testcase, self.said.copy(), messages, 'only {} messages matched, need {}'.format(j, len(messages)))
+					self.testcase.push_error(err)
+					if abort:
+						raise err
 					return False
 				b = self.said[i]
 				i = i + 1
@@ -146,7 +171,15 @@ class Recorder:
 				elif isinstance(a, str) and a == b:
 					break
 				if not allow_extra:
+					err = TestAssertException(self.testcase, b, a, 'unexpected message {}'.format(a))
+					self.testcase.push_error(err)
+					if abort:
+						raise err
 					return False
 		if not allow_extra and len(messages) != len(self.said):
+			err = TestAssertException(self.testcase, self.said.copy(), messages, 'only {} messages needed, got {}'.format(len(messages), len(told)))
+			self.testcase.push_error(err)
+			if abort:
+				raise err
 			return False
 		return True
