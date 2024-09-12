@@ -43,7 +43,7 @@ def on_unload(server: PluginServerInterface):
 	plugin_interface = None
 
 class TestCase(ABC):
-	_avaliable_testcases: list[tuple[str, TestCase]] = []
+	_avaliable_testcases: list[tuple[str, 'TestCase']] = []
 	_running_test: str | None = None
 	_running_test_lock = threading.Lock()
 
@@ -101,12 +101,12 @@ class TestCase(ABC):
 	def current_executor(self) -> CommandSource | None:
 		return self._current_executor
 
-	def tester(self, cb: Callable[[TestCase], None]) -> Callable[[TestCase], None]:
+	def tester(self, cb: Callable[['TestCase'], None]) -> Callable[['TestCase'], None]:
 		name = cb.__name__.removeprefix('test__')
 		self._testers.append((name, cb))
 		return cb
 
-	def _run_tester(self, tester: Callable[[TestCase], None], *, verbose: bool = False) -> bool | None:
+	def _run_tester(self, tester: Callable[['TestCase'], None], *, verbose: bool = False) -> bool | None:
 		self._verbose_log = verbose
 		self._test_logs.clear()
 		self._errors.clear()
