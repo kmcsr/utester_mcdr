@@ -47,8 +47,12 @@ class TestCase(ABC):
 	_running_test: str | None = None
 	_running_test_lock = threading.Lock()
 
-	def __init__(self, name: str):
-		self._name = name
+	def __new__(cls, name: str | None = None) -> 'TestCase':
+		instance = getattr(cls, '_instance', None)
+		if instance is not None:
+			return instance
+		self = super(TestCase, cls).__new__()
+		self._name = name or cls.__name__
 		if plugin_interface is None:
 			raise RuntimeError('UTester is not loaded!')
 		server = ServerInterface.get_instance()
@@ -68,18 +72,18 @@ class TestCase(ABC):
 		self._test_logs: list[tuple[bool, MessageText]] = []
 		self._errors: list[Exception] = []
 
+		setattr(cls, '_instance', self)
+
 		plugin_interface.logger.info('Registering test case {}'.format(self.id))
 		TestCase._avaliable_testcases.append((self.id, self))
 
-		for n, cb in self.__class__.__dict__.items():
+		for n, cb in cls.__dict__.items():
 			if n.startswith('test__'):
 				self._testers.append((n.removeprefix('test__'), cb))
 
 	def __init_subclass__(cls, name: str | None = None):
 		super().__init_subclass__()
-		if not name:
-			name = cls.__name__
-		cls(name)
+		cls()
 
 	@property
 	def name(self) -> str:
