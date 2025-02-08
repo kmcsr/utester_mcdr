@@ -3,7 +3,7 @@ import threading
 
 from abc import ABC
 from datetime import datetime
-from typing import Callable, NoReturn, TypeAlias
+from typing import ClassVar, Callable, NoReturn, TypeAlias, TYPE_CHECKING
 
 from mcdreforged.api.all import (
 	CommandSource,
@@ -19,17 +19,25 @@ from mcdreforged.info_reactor.info import Info, InfoSource
 from mcdreforged.plugin.type.regular_plugin import RegularPlugin
 MessageText: TypeAlias = str | RTextBase
 
-from .fake_command_source import FakeCommandSource, FakePlayerCommandSource, FakeConsoleCommandSource
+from .exceptions import *
+from .fake_command_source import FakeCommandSource, FakePlayerCommandSource, FakeConsoleCommandSource, FakeInfo
 from .recorder import Recorder
+
+if TYPE_CHECKING:
+	from mcdreforged.mcdr_server import MCDReforgedServer
 
 __all__ = [
 	'TestCase',
-	'TestException', 'TestAssertException',
 	'FakeCommandSource', 'FakePlayerCommandSource', 'FakeConsoleCommandSource',
 	'Recorder',
 ]
 
 plugin_interface: PluginServerInterface | None = None
+
+def get_plugin_interface() -> PluginServerInterface:
+	global plugin_interface
+	assert plugin_interface is not None
+	return plugin_interface
 
 def on_load(server: PluginServerInterface, prev_module):
 	plugin_interface = server
@@ -43,15 +51,24 @@ def on_unload(server: PluginServerInterface):
 	plugin_interface = None
 
 class TestCase(ABC):
-	_avaliable_testcases: list[tuple[str, 'TestCase']] = []
-	_running_test: str | None = None
+	_avaliable_testcases: ClassVar[list[tuple[str, 'TestCase']]] = []
+	_running_test: ClassVar[str | None] = None
 	_running_test_lock = threading.Lock()
+
+	_name: str
+	_mcdr_server: 'MCDReforgedServer'
+	_plugin: RegularPlugin
+	_testers: list[tuple[str, Callable[[TestCase], None]]]
+	_current_executor: CommandSource | None
+	_verbose_log: bool
+	_test_logs: list[tuple[bool, MessageText]]
+	_errors: list[Exception]
 
 	def __new__(cls, name: str | None = None) -> 'TestCase':
 		instance = getattr(cls, '_instance', None)
 		if instance is not None:
 			return instance
-		self = super(TestCase, cls).__new__()
+		self = super().__new__(cls)
 		self._name = name or cls.__name__
 		if plugin_interface is None:
 			raise RuntimeError('UTester is not loaded!')
@@ -59,18 +76,18 @@ class TestCase(ABC):
 		if server is None:
 			raise RuntimeError('ServerInterface is not initialized yet!')
 		self._mcdr_server = server._mcdr_server
-		plugin = self._mcdr_server.plugin_manager.get_current_running_plugin()
+		plugin = self._mcdr_server.plugin_manager.get_plugin_in_current_context()
 		if plugin is None:
 			raise RuntimeError('There are no running plugin in context!')
 		if not isinstance(plugin, RegularPlugin):
 			raise RuntimeError('Plugin {} is not a RegularPlugin'.format(plugin.get_id()))
 		self._plugin = plugin
 
-		self._testers: list[tuple[str, Callable[[TestCase], None]]] = []
-		self._current_executor: CommandSource | None = None
+		self._testers = []
+		self._current_executor = None
 		self._verbose_log = False
-		self._test_logs: list[tuple[bool, MessageText]] = []
-		self._errors: list[Exception] = []
+		self._test_logs = []
+		self._errors = []
 
 		setattr(cls, '_instance', self)
 
@@ -80,6 +97,7 @@ class TestCase(ABC):
 		for n, cb in cls.__dict__.items():
 			if n.startswith('test__'):
 				self._testers.append((n.removeprefix('test__'), cb))
+		return self
 
 	def __init_subclass__(cls, name: str | None = None):
 		super().__init_subclass__()
@@ -169,34 +187,43 @@ class TestCase(ABC):
 		date: datetime | None = None,
 		preference: PreferenceItem | None = None,
 	) -> FakePlayerCommandSource:
-		info = self._make_player_info(player, command, date=date)
-		source = FakePlayerCommandSource(self._mcdr_server, info, player, preference=preference)
+		info = self._make_player_info(player, command, date=date, preference=preference)
+		source = info.to_command_source()
+		assert isinstance(source, FakePlayerCommandSource)
 		assert plugin_interface is not None
 		plugin_interface.execute_command(command, source)
 		return source
 
 	def execute_command_by_console(self, command: str, *, preference: PreferenceItem | None = None) -> FakeConsoleCommandSource:
-		info = self._make_console_info(command)
-		source = FakeConsoleCommandSource(self._mcdr_server, info, preference=preference)
+		info = self._make_console_info(command, preference=preference)
+		source = info.to_command_source()
+		assert isinstance(source, FakeConsoleCommandSource)
 		assert plugin_interface is not None
 		plugin_interface.execute_command(command, source)
 		return source
 
-	def _make_player_info(self, player: str, content: str, *, date: datetime | None = None) -> Info:
+	def _make_player_info(self, player: str, content: str, *,
+		date: datetime | None = None,
+		template: str = '[{hour:02d}:{minute:02d}:{second:02d}] <{player}> {content}',
+		logging_level: str = 'INFO',
+		preference: PreferenceItem | None = None) -> Info:
 		date = datetime.now()
-		info = Info(InfoSource.SERVER, '[{:02d}:{:02d}:{:02d}] <{}> {}'.format(date.hour, date.minute, date.second, player, content))
+		raw_content = template.format(hour=date.hour, minute=date.minute, second=date.second, player=player, content=content)
+		info = FakeInfo(InfoSource.SERVER, raw_content)
+		info._command_source = FakePlayerCommandSource(self._mcdr_server, info, player, preference=preference)
 		info.hour = date.hour
 		info.min = date.minute
 		info.sec = date.second
 		info.content = content
 		info.player = player
-		info.logging_level = 'INFO'
+		info.logging_level = logging_level
 		info.attach_mcdr_server(self._mcdr_server)
 		return info
 
-	def _make_console_info(self, content: str) -> Info:
+	def _make_console_info(self, content: str, *, preference: PreferenceItem | None = None) -> Info:
 		date = datetime.now()
-		info = Info(InfoSource.CONSOLE, content)
+		info = FakeInfo(InfoSource.CONSOLE, content)
+		info._command_source = FakeConsoleCommandSource(self._mcdr_server, info, preference=preference)
 		info.content = content
 		info.attach_mcdr_server(self._mcdr_server)
 		return info
@@ -225,7 +252,7 @@ class TestCase(ABC):
 		assert self.current_executor
 		if self._verbose_log:
 			if not self.current_executor.is_console:
-				plugin_interface.logger.info(message)
+				get_plugin_interface().logger.info(message)
 			self.current_executor.reply(message)
 		else:
 			self._test_logs.append((force, message))
@@ -279,16 +306,3 @@ class TestCase(ABC):
 	def assert_ge(self, got, want, *, message: str | None = None, abort: bool = True) -> bool:
 		return self.assert_true(got >= want, want=want, abort=abort,
 			message=message or 'want greater or equal than {}, got {}'.format(want, got))
-
-class TestException(Exception):
-	pass
-
-class TestAssertException(TestException):
-	def __init__(self, test: TestCase, got, want, message: str):
-		super().__init__('Assert failed when testing {}: {}'.format(test.id, message))
-		self.testcase = test
-		self.want = want
-		self.got = got
-
-SkipTestError = TestException('SkipTestError')
-AbortTestError = TestException('AbortTestError')

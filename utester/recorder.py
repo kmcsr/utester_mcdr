@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Callable, Self, TypeAlias
 from mcdreforged.api.all import RTextBase, ServerInterface
 MessageText: TypeAlias = str | RTextBase
 
+from .exceptions import *
+
 if TYPE_CHECKING:
 	from .api import TestCase
 
@@ -155,7 +157,7 @@ class Recorder:
 		for a in messages:
 			while True:
 				if i >= len(self.said):
-					err = TestAssertException(self.testcase, self.said.copy(), messages, 'only {} messages matched, need {}'.format(j, len(messages)))
+					err = TestAssertException(self.testcase, self.said.copy(), messages, 'only {} messages matched, need {}'.format(i, len(messages)))
 					self.testcase.push_error(err)
 					if abort:
 						raise err
@@ -177,7 +179,7 @@ class Recorder:
 						raise err
 					return False
 		if not allow_extra and len(messages) != len(self.said):
-			err = TestAssertException(self.testcase, self.said.copy(), messages, 'only {} messages needed, got {}'.format(len(messages), len(told)))
+			err = TestAssertException(self.testcase, self.said.copy(), messages, 'only {} messages needed, got {}'.format(len(messages), len(self.said)))
 			self.testcase.push_error(err)
 			if abort:
 				raise err

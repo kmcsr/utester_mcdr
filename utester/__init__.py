@@ -3,11 +3,14 @@ import mcdreforged.api.all as MCDR
 
 from . import api
 from . import commands as CMD
+from . import exceptions
 
 from .api import *
+from .exceptions import *
 
 __all__: list[str] = []
 __all__.extend(api.__all__)
+__all__.extend(exceptions.__all__)
 
 def on_load(server: MCDR.PluginServerInterface, prev_module):
 	server.logger.info('Unit Tester is loading')

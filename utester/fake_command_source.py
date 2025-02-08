@@ -1,6 +1,8 @@
 
 from typing import TypeAlias
-from mcdreforged.api.all import ConsoleCommandSource, PlayerCommandSource, PreferenceItem, RTextBase
+from mcdreforged.api.all import Info, InfoCommandSource, ConsoleCommandSource, PlayerCommandSource, PreferenceItem, RTextBase
+from mcdreforged.info_reactor.info import InfoSource
+
 MessageText: TypeAlias = str | RTextBase
 
 __all__ = [
@@ -34,3 +36,11 @@ class FakeConsoleCommandSource(FakeCommandSource, ConsoleCommandSource):
 	def __init__(self, mcdr_server, info, *, preference: PreferenceItem | None = None):
 		ConsoleCommandSource.__init__(self, mcdr_server, info)
 		FakeCommandSource.__init__(self, preference=preference)
+
+class FakeInfo(Info):
+	def __init__(self, source: InfoSource, raw_content: str):
+		super().__init__(source, raw_content)
+		self._command_source: InfoCommandSource | None = None
+
+	def get_command_source(self) -> InfoCommandSource | None:
+		return self._command_source

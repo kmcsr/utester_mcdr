@@ -16,6 +16,7 @@ def register(server: MCDR.PluginServerInterface):
 					runs(lambda src, ctx: list_tests(src, ctx['pattern']))).
 				runs(lambda src, ctx: list_tests(src, ''))))
 
+@MCDR.new_thread('tester-thread')
 def run_tests(source: MCDR.CommandSource, pattern: str):
 	pat1 = ''
 	if '.' in pattern:
